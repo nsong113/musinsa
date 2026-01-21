@@ -1,6 +1,6 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from "@/fixtures/index";
 
-test.describe('Brand', () => {
+test.describe("Brand", () => {
   test("example Brand test", async ({ page }) => {
     // Arrange
 
@@ -10,4 +10,3 @@ test.describe('Brand', () => {
     await expect(page).toHaveURL(/.*/);
   });
 });
-

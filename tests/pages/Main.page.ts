@@ -1,4 +1,4 @@
-import { Page, Locator } from '@playwright/test';
+import { Page, Locator } from "@playwright/test";
 
 export class MainPage {
   readonly page: Page;
@@ -8,7 +8,6 @@ export class MainPage {
   }
 
   // Locators
-  
+
   // Methods
-  
 }

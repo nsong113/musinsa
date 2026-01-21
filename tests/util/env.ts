@@ -1,5 +1,7 @@
 // Environment variables and configuration
 
-export const env = {
-  // Add environment variables here
+const env = {
+  BASE_URL: "https://www.musinsa.com/main/musinsa",
 };
+
+export default env.BASE_URL;
