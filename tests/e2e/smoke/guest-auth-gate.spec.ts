@@ -7,7 +7,7 @@ test.describe('Guest Auth Gate', () => {
     // Arrange
     
     // Act
-    
+    // 이름 변경 test
     // Assert
     await expect(page).toHaveURL(/.*/);
   });
