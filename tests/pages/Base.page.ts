@@ -14,6 +14,6 @@ export class BasePage {
   }
 
   async goToMain() {
-    await this.page.goto("/");
+    await this.page.goto("musinsa/recommend?gf=A");
   }
 }
