@@ -1,5 +1,0 @@
-# 트리거: push, pull_request 이벤트
-# Node.js 환경 설정
-# Playwright 설치 및 의존성 설치
-# 테스트 실행 (headless 모드)
-# 아티팩트 업로드 (리포트, 스크린샷, 비디오)

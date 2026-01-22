@@ -1,6 +1,6 @@
-import { test, expect } from '@/fixtures/index';
+import { test, expect } from '@playwright/test';
 
-test.describe('Login-logout', () => {
+test.describe('Login', () => {
   test('example login test', async ({ page }) => {
     // Arrange
     
