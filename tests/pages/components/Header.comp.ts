@@ -10,8 +10,10 @@ export class HeaderComponent {
   constructor(page: Page) {
     this.page = page;
 
-    this.loginButton = page.locator('a[aria-label="로그인 페이지로 이동"]');
-    this.logoutButton = page.locator('a[aria-label="로그아웃"]');
+    // this.loginButton = page.locator('a[aria-label="로그인 페이지로 이동"]');
+    // this.logoutButton = page.locator('a[aria-label="로그아웃"]');
+    this.loginButton = page.getByRole("link", { name: "로그인 페이지로 이동" });
+    this.logoutButton = page.getByRole("link", { name: "로그아웃" });
   }
 
   // Locators
