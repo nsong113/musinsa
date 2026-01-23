@@ -33,7 +33,13 @@ export default defineConfig({
   use: {
     /* Base URL to use in actions like `await page.goto('')`. */
     baseURL: "https://www.musinsa.com",
-
+    locale: "ko-KR",
+    timezoneId: "Asia/Seoul",
+    geolocation: { longitude: 126.978, latitude: 37.5665 }, // 서울 좌표
+    extraHTTPHeaders: {
+      //헤더 조작 강화
+      "Accept-Language": "ko-KR,ko;q=0.9",
+    },
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: "on-first-retry",
     screenshot: "only-on-failure",
