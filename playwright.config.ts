@@ -38,7 +38,7 @@ export default defineConfig({
     geolocation: { longitude: 126.978, latitude: 37.5665 }, // 서울 좌표
     extraHTTPHeaders: {
       //헤더 조작 강화
-      "Accept-Language": "ko-KR,ko;q=0.9",
+      "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
     },
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: "on-first-retry",
@@ -53,7 +53,17 @@ export default defineConfig({
       name: "setup",
       testMatch: /.*\.setup\.ts/,
       // teardown: "cleanup", //"cleanup" 때문에 이름이 "cleanup"인 프로젝트가 이어서 실행됨 (필요시)
-      use: { ...devices["Desktop Chrome"], headless: true },
+      use: { 
+        ...devices["Desktop Chrome"], 
+        headless: true,
+        // 위치 정보 명시적으로 추가 (CI 환경에서 IP 기반 리다이렉트 방지)
+        locale: "ko-KR",
+        timezoneId: "Asia/Seoul",
+        geolocation: { longitude: 126.978, latitude: 37.5665 }, // 서울 좌표
+        extraHTTPHeaders: {
+          "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+        },
+      },
     },
     // {
     //   name: "cleanup",

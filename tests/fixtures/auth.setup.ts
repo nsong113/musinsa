@@ -52,6 +52,17 @@ setup("authenticate", async ({ page }) => {
   ]);
   console.log("[AUTH SETUP] Cookies set (gcc=KR, gcuc=KRW, glc=ko)");
 
+  // 쿠키 적용을 위한 새로고침 (서버가 쿠키를 인식하도록)
+  console.log("[AUTH SETUP] Step 1.5: Reloading page to apply cookies");
+  await page.reload({ waitUntil: "networkidle" });
+  const urlAfterReload = page.url();
+  console.log("[AUTH SETUP] URL after reload:", urlAfterReload);
+  if (urlAfterReload.includes("global.musinsa.com")) {
+    console.warn("[AUTH SETUP] ⚠️ REDIRECTED TO GLOBAL SITE after reload!");
+  } else {
+    console.log("[AUTH SETUP] ✓ Still on Korean site after reload");
+  }
+
   // 메인 페이지로 이동
   console.log("[AUTH SETUP] Step 2: Navigating to main page");
   await basePage.goToMain();
