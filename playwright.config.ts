@@ -53,8 +53,8 @@ export default defineConfig({
       name: "setup",
       testMatch: /.*\.setup\.ts/,
       // teardown: "cleanup", //"cleanup" 때문에 이름이 "cleanup"인 프로젝트가 이어서 실행됨 (필요시)
-      use: { 
-        ...devices["Desktop Chrome"], 
+      use: {
+        ...devices["Desktop Chrome"],
         headless: true,
         // 위치 정보 명시적으로 추가 (CI 환경에서 IP 기반 리다이렉트 방지)
         locale: "ko-KR",
@@ -72,8 +72,8 @@ export default defineConfig({
     // },
     {
       name: "chromium",
-      testDir: "./tests/e2e",
-      testMatch: /e2e\/.*\.spec\.ts/,
+      testDir: "./tests",
+      testMatch: /.*\.spec\.ts/,
       testIgnore: [/.*\.setup\.ts/, /.*node_modules.*/],
       use: {
         ...devices["Desktop Chrome"],
