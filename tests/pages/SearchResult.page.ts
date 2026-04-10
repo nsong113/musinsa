@@ -21,13 +21,16 @@ export class SearchResultPage {
 
     this.searchTabs = page.locator('[role="tablist"]').or(page.locator("nav"));
 
-    this.totalProductCount = page.getByText(/전체\s*[\d,]+\s*개/).or(
-      page.getByText(/총\s*[\d,]+\s*개/),
-    );
+    this.totalProductCount = page
+      .getByText(/전체\s*[\d,]+\s*개/)
+      .or(page.getByText(/총\s*[\d,]+\s*개/))
+      .or(page.getByText(/^[\d,]+\s*개$/))
+      .or(page.getByText(/새\s*상품\s*[\d,]+/));
 
+    /** 카드 단위(썸네일·가격·텍스트 동일 영역). 이미지 전용 링크만 있던 a는 제외 */
     this.productList = page
-      .locator('a[href*="/products/"], a[href*="/goods/"]')
-      .filter({ has: page.locator("img") });
+      .locator('[class*="UIItemContainer"]')
+      .filter({ has: page.locator('a[href*="/products/"]') });
 
     this.brandFilter = page
       .getByRole("button", { name: /브랜드/ })
@@ -47,12 +50,27 @@ export class SearchResultPage {
     expect(n).toBeGreaterThan(0);
   }
 
+  /** 풀스크린 Dim(프로모션·바텀시트 등)이 있으면 연관검색어 클릭이 가로막힘 */
+  private async dismissPointerBlockingOverlays(): Promise<void> {
+    const dim = this.page.locator('[data-mds="Dim"]');
+    for (let i = 0; i < 8; i++) {
+      const visible = await dim
+        .first()
+        .isVisible()
+        .catch(() => false);
+      if (!visible) return;
+      await this.page.keyboard.press("Escape");
+      await this.page.waitForTimeout(300);
+    }
+  }
+
   async clickFirstRelatedKeyword(): Promise<void> {
     const section = this.page.locator('[data-content-name="연관 검색어"]');
     await expect(section).toBeVisible({ timeout: 20000 });
     const first = section.locator("button, a[href]").first();
     await expect(first).toBeVisible();
-    await first.click();
+    await this.dismissPointerBlockingOverlays();
+    await first.click({ force: true });
     await this.page.waitForLoadState("domcontentloaded");
     await this.page.waitForLoadState("networkidle", { timeout: 30000 }).catch(
       () => {},
@@ -66,14 +84,16 @@ export class SearchResultPage {
       const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const tab = this.page
         .getByRole("tab", { name: new RegExp(escaped) })
-        .or(this.page.getByRole("link", { name: new RegExp(escaped) }));
+        .or(this.page.getByRole("link", { name: new RegExp(escaped) }))
+        .or(this.page.locator(`button[data-button-name="${label}"]`));
       await expect(tab.first()).toBeVisible({ timeout: 20000 });
     }
     for (const label of optional) {
       const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const tab = this.page
         .getByRole("tab", { name: new RegExp(escaped) })
-        .or(this.page.getByRole("link", { name: new RegExp(escaped) }));
+        .or(this.page.getByRole("link", { name: new RegExp(escaped) }))
+        .or(this.page.locator(`button[data-button-name="${label}"]`));
       await expect.soft(tab.first()).toBeVisible({ timeout: 10000 });
     }
   }
@@ -83,15 +103,19 @@ export class SearchResultPage {
     const 상품 = this.page
       .getByRole("tab", { name: /^상품$/ })
       .or(this.page.getByRole("link", { name: /^상품$/ }))
+      .or(this.page.locator('button[data-button-name="상품"]'))
       .first();
     await expect(상품).toBeVisible({ timeout: 20000 });
     await expect(this.page).toHaveURL(/search|keyword=/);
   }
 
   async verifyTotalProductCount(): Promise<void> {
-    const countEl = this.page
+    const main = this.page.locator("main").first();
+    const countEl = main
       .getByText(/전체\s*[\d,]+\s*개/)
-      .or(this.page.getByText(/총\s*[\d,]+\s*개/))
+      .or(main.getByText(/총\s*[\d,]+\s*개/))
+      .or(main.getByText(/^[\d,]+\s*개$/))
+      .or(main.getByText(/새\s*상품\s*[\d,]+/))
       .first();
     await expect(countEl).toBeVisible({ timeout: 20000 });
     const countText = await countEl.textContent();
@@ -139,15 +163,24 @@ export class SearchResultPage {
 
   /** FEATURE_검색_030: 할인·정가·쿠폰 등 추가 가격 정보(상위 몇 개에서 탐색) */
   async verifyProductPriceExtra(productIndex: number = 0): Promise<void> {
+    await expect(this.productList.first()).toBeVisible({ timeout: 25000 });
     const n = await this.productList.count();
     const tryIndices = [productIndex, 0, 1, 2, 3].filter(
       (i, j, a) => a.indexOf(i) === j && i < n,
     );
     for (const i of tryIndices) {
-      const text = (await this.productList.nth(i).innerText()) ?? "";
+      const card = this.productList.nth(i);
+      const text = (await card.innerText()) ?? "";
       if (/%|할인|정가|쿠폰|최대|적립|무료배송/.test(text)) {
         return;
       }
+      /** 이미지 영역 링크에 data-discount-rate 등이 붙는 경우가 많음 */
+      const productLink = card.locator('a[href*="/products/"]').first();
+      const rate = await productLink.getAttribute("data-discount-rate");
+      const original = await productLink.getAttribute("data-original-price");
+      const price = await productLink.getAttribute("data-price");
+      if (rate && rate !== "0") return;
+      if (original && price && original !== price) return;
     }
     throw new Error("추가 가격·혜택 정보를 찾지 못했습니다.");
   }

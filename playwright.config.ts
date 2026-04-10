@@ -5,10 +5,16 @@ import path from "path";
 
 dotenv.config({ path: path.resolve(__dirname, ".env"), quiet: true });
 
-/** 번들 Chromium 미설치 환경에서 로컬 Google Chrome 사용: PW_USE_SYSTEM_CHROME=1 yarn playwright test */
-const useSystemChrome =
+const isCi = !!process.env.CI;
+const forceBundled = process.env.PW_USE_BUNDLED_CHROMIUM === "1";
+const forceSystemChrome =
   process.env.PW_USE_SYSTEM_CHROME === "1" ||
   process.env.USE_SYSTEM_CHROME === "1";
+
+
+const useSystemChrome =
+  forceSystemChrome ||
+  (!isCi && !forceBundled && process.platform === "darwin");
 
 const desktopChrome = useSystemChrome
   ? { ...devices["Desktop Chrome"], channel: "chrome" as const }
@@ -19,6 +25,7 @@ const desktopChrome = useSystemChrome
  */
 export default defineConfig({
   testDir: "./tests",
+  timeout: 60_000,
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -32,11 +39,9 @@ export default defineConfig({
   // reporter: "html",
   reporter: [
     ["html", { outputFolder: "playwright-reports" }],
-    // ["allure-playwright", { outputFolder: "allure-results" }],
   ],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
-    /* Base URL to use in actions like `await page.goto('')`. */
     baseURL: "https://www.musinsa.com",
     locale: "ko-KR",
     timezoneId: "Asia/Seoul",
@@ -45,10 +50,9 @@ export default defineConfig({
       //헤더 조작 강화
       "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
     },
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
+   
     trace: "on-first-retry",
     screenshot: "only-on-failure",
-    /* ffmpeg는 `playwright install`에 포함. 미설치 환경(CI 포함)에서는 끔 */
     video:
       process.env.PLAYWRIGHT_RECORD_VIDEO === "1"
         ? "retain-on-failure"
@@ -61,11 +65,9 @@ export default defineConfig({
     {
       name: "setup",
       testMatch: /.*\.setup\.ts/,
-      // teardown: "cleanup", //"cleanup" 때문에 이름이 "cleanup"인 프로젝트가 이어서 실행됨 (필요시)
       use: {
         ...desktopChrome,
         headless: true,
-        // 위치 정보 명시적으로 추가 (CI 환경에서 IP 기반 리다이렉트 방지)
         locale: "ko-KR",
         timezoneId: "Asia/Seoul",
         geolocation: { longitude: 126.978, latitude: 37.5665 }, // 서울 좌표
@@ -74,11 +76,6 @@ export default defineConfig({
         },
       },
     },
-    // {
-    //   name: "cleanup",
-    //   testMatch: /.*\.cleanup\.ts/,
-    //   use: { ...devices["Desktop Chrome"] },
-    // },
     {
       name: "chromium",
       testDir: "./tests",
@@ -92,10 +89,4 @@ export default defineConfig({
     },
   ],
 
-  /* Run your local dev server before starting the tests */
-  // webServer: {
-  //   command: 'npm run start',
-  //   url: 'http://localhost:3000',
-  //   reuseExistingServer: !process.env.CI,
-  // },
 });

@@ -6,6 +6,8 @@
 
 - Node.js (LTS 권장)
 
+- **브라우저**: **macOS 로컬**에서는 기본적으로 **설치된 Google Chrome**으로 실행합니다(번들 Chromium 없어도 `yarn test` 가능). 번들만 쓰려면 `yarn playwright install chromium` 후 `PW_USE_BUNDLED_CHROMIUM=1 yarn test`. Linux/Windows 로컬은 `yarn playwright install chromium` 또는 Chrome 사용 시 `PW_USE_SYSTEM_CHROME=1`. CI는 `postinstall`/워크플로에서 받은 Chromium을 사용합니다.
+
 - `setup` 프로젝트가 먼저 실행되어 로그인 상태를 `tests/fixtures/storage/authed.json`에 저장하고, `chromium` 프로젝트가 이어서 실행됩니다.
 - 리포트: `playwright-reports/` (HTML), 실패 시 `test-results/`에 스크린샷·트레이스 등
 
