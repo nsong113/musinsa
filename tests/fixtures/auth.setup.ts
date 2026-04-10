@@ -27,39 +27,39 @@ setup("authenticate", async ({ page }) => {
   await page.reload({ waitUntil: "domcontentloaded" });
 
   const urlAfterStep0 = page.url();
-  console.log("[AUTH SETUP] URL after cookies/reload:", urlAfterStep0);
+  // console.log("[AUTH SETUP] URL after cookies/reload:", urlAfterStep0);
   if (urlAfterStep0.includes("global.musinsa.com")) {
     console.warn("[AUTH SETUP] ⚠️ REDIRECTED TO GLOBAL SITE at Step 0!");
   }
 
   // 메인 페이지로 이동
-  console.log("[AUTH SETUP] Step 2: Navigating to main page");
+  // console.log("[AUTH SETUP] Step 2: Navigating to main page");
   await basePage.goToMain();
 
   const initialUrl = page.url();
-  console.log("[AUTH SETUP] URL after Step 2 (goToMain):", initialUrl);
+  // console.log("[AUTH SETUP] URL after Step 2 (goToMain):", initialUrl);
 
   // 로그인 버튼 클릭
-  console.log("[AUTH SETUP] Step 3: Clicking login button");
+  // console.log("[AUTH SETUP] Step 3: Clicking login button");
   const header = new HeaderComponent(page);
 
   const loginPage = await header.clickingLoginBtn();
 
   // 로그인 수행
-  console.log("[AUTH SETUP] Step 4: Performing login");
+  // console.log("[AUTH SETUP] Step 4: Performing login");
   await loginPage.login(USERNAME, PASSWORD);
 
   // 로그인 후 리다이렉트 대기
-  console.log("[AUTH SETUP] Step 5: Waiting for redirect");
+  // console.log("[AUTH SETUP] Step 5: Waiting for redirect");
   await page.waitForURL(/.*musinsa.*/, { timeout: 15000 });
 
   // 로그인 성공 확인 (로그아웃 버튼이 보이는지)
-  console.log("[AUTH SETUP] Step 6: Verifying logout button");
+  // console.log("[AUTH SETUP] Step 6: Verifying logout button");
   await expect(header.logoutButton).toBeVisible({ timeout: 10000 });
-  console.log("[AUTH SETUP] Logout button is visible - login successful");
+  // console.log("[AUTH SETUP] Logout button is visible - login successful");
 
   // 인증 상태 저장
-  console.log("[AUTH SETUP] Step 7: Saving storage state");
+  // console.log("[AUTH SETUP] Step 7: Saving storage state");
   await page.context().storageState({ path: authStatePath });
-  console.log("[AUTH SETUP] Storage state saved to:", authStatePath);
+  // console.log("[AUTH SETUP] Storage state saved to:", authStatePath);
 });

@@ -30,7 +30,8 @@ export class HeaderComponent {
 
     this.searchTabInput = page.getByPlaceholder("검색어를 입력하세요");
     this.searchTabBtn = page.getByRole("button", { name: "검색", exact: true });
-    this.searchTabRecommend = page.getByText("인기 검색어");
+    /** 사이트 카피 변경 대비(실시간 인기 등) */
+    this.searchTabRecommend = page.getByText(/인기\s*검색어|실시간\s*인기|추천\s*검색어/);
   }
 
   // Locators
@@ -46,6 +47,7 @@ export class HeaderComponent {
     return new LoginPage(this.page);
   }
 
+  /** 같은 세션에서 좋아요를 눌렀다면, 가능하면 해당 화면에서 좋아요 취소 후 호출(계정·후속 테스트 정합성) */
   async clickingLogoutBtn() {
     await expect(this.logoutButton).toBeVisible();
 
@@ -65,7 +67,14 @@ export class HeaderComponent {
     switch (mode) {
       case "main":
         await expect(this.searchInput).toBeVisible();
-        await this.searchOpenButton.click();
+        /** 메인 빅배너·딤이 검색 버튼 위에 있으면 클릭이 캠페인으로 새 탭/이동할 수 있음 */
+        await this.page.keyboard.press("Escape");
+        await this.page.waitForTimeout(200);
+        await this.searchOpenButton.scrollIntoViewIfNeeded();
+        await expect(this.page).toHaveURL(/\/main\/musinsa\//, {
+          timeout: 10000,
+        });
+        await this.searchOpenButton.click({ force: true });
         await expect(this.searchTabInput).toBeVisible({ timeout: 15000 });
         break;
       case "tab":

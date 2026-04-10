@@ -2,12 +2,10 @@ import { test, expect } from "@/fixtures/index";
 import { HeaderComponent } from "@/pages/components/Header.comp";
 import { MainPage } from "@/pages/Main.page";
 import { SearchResultPage } from "@/pages/SearchResult.page";
-import { SEARCH_KEYWORD } from "@/data/general";
-
-/**
- * Search Test Suite
- * CSV TestCase: FEATURE_검색_013~044
- */
+import {
+  BRAND_FILTER_MUSINSA_STANDARD,
+  SEARCH_KEYWORD,
+} from "@/data/general";
 
 test.describe("Search", () => {
   let header: HeaderComponent;
@@ -143,16 +141,65 @@ test.describe("Search", () => {
         ).toBeVisible({ timeout: 15000 });
       });
     });
-  });
 
-  test.describe("검색 결과 좋아요", () => {
-    test.beforeEach(async () => {
-      await header.search(SEARCH_KEYWORD, "main");
-    });
+    test.describe("브랜드 필터·무신사 스탠다드", () => {
+      test.setTimeout(180_000);
 
-    test("FEATURE_검색_044: 좋아요 버튼 클릭 시 빨간 하트로 변한다", async () => {
-      await searchResultPage.clickLikeButton(0);
-      await searchResultPage.verifyLikeButtonActive(0);
+      test("FEATURE_검색_035~044: 필터·결과·좋아요", async () => {
+        let n = 0;
+        let s = 0;
+
+        await test.step("FEATURE_검색_035: 무신사 스탠다드 선택·상단 노출", async () => {
+          n = await searchResultPage.getTotalProductCountFromMain();
+          await searchResultPage.clickBrandFilter();
+          await searchResultPage.selectBrand(BRAND_FILTER_MUSINSA_STANDARD);
+          await searchResultPage.verifyBrandChipVisible(
+            BRAND_FILTER_MUSINSA_STANDARD,
+          );
+        });
+
+        await test.step("FEATURE_검색_036·037: s·[s개의 상품 보기] 노출", async () => {
+          s = await searchResultPage.getBrandFilterSelectionCount(n);
+          await expect(searchResultPage.viewProductsButton(s)).toBeVisible({
+            timeout: 15000,
+          });
+        });
+
+        await test.step("FEATURE_검색_038: n >= s", async () => {
+          expect(n).toBeGreaterThanOrEqual(s);
+        });
+
+        await test.step("FEATURE_검색_039: s개 상품 보기 클릭", async () => {
+          await searchResultPage.clickViewProductsForCount(s);
+        });
+
+        await test.step("FEATURE_검색_040: 목록 개수 s", async () => {
+          await searchResultPage.verifyProductCardCountEquals(s);
+        });
+
+        await test.step("FEATURE_검색_041: 브랜드 일치", async () => {
+          await searchResultPage.verifyAllProductCardsBrandMusinsaStandard();
+        });
+
+        await test.step("FEATURE_검색_042: 상품명 80% 이상 니트 포함", async () => {
+          await searchResultPage.verifyProductNamesContainKeywordAtLeast(
+            SEARCH_KEYWORD,
+            0.8,
+          );
+        });
+
+        await test.step("FEATURE_검색_043: 하트 아이콘 존재", async () => {
+          await expect(searchResultPage.likeButtons.first()).toBeVisible({
+            timeout: 15000,
+          });
+        });
+
+        await test.step("FEATURE_검색_044: 좋아요 활성", async () => {
+          await searchResultPage.clickLikeButton(0);
+          await searchResultPage.verifyLikeButtonActive(0);
+          await searchResultPage.deactivateLikeAt(0);
+        });
+      });
     });
   });
 });
