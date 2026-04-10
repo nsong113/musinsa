@@ -38,53 +38,20 @@ setup("authenticate", async ({ page }) => {
 
   const initialUrl = page.url();
   console.log("[AUTH SETUP] URL after Step 2 (goToMain):", initialUrl);
-  
-  // global로 리다이렉트되어도 계속 진행
-  // if (initialUrl.includes("global.musinsa.com")) {
-  //   console.warn("[AUTH SETUP] ⚠️ REDIRECTED TO GLOBAL SITE at Step 2!");
-  //   console.warn("[AUTH SETUP] Global URL:", initialUrl);
-  //   console.warn("[AUTH SETUP] Proceeding with test despite redirect...");
-  // } else {
-  //   console.log("[AUTH SETUP] ✓ Still on Korean site after goToMain");
-  // }
 
   // 로그인 버튼 클릭
   console.log("[AUTH SETUP] Step 3: Clicking login button");
   const header = new HeaderComponent(page);
-  
-  const urlBeforeLoginClick = page.url();
-  // console.log("[AUTH SETUP] URL before login click:", urlBeforeLoginClick);
-  // if (urlBeforeLoginClick.includes("global.musinsa.com")) {
-  //   console.warn("[AUTH SETUP] ⚠️ REDIRECTED TO GLOBAL SITE before login click!");
-  // }
-  
+
   const loginPage = await header.clickingLoginBtn();
-  const urlAfterLoginClick = page.url();
-  // console.log("[AUTH SETUP] URL after login click:", urlAfterLoginClick);
-  // if (urlAfterLoginClick.includes("global.musinsa.com")) {
-  //   console.warn("[AUTH SETUP] ⚠️ REDIRECTED TO GLOBAL SITE after login click!");
-  // }
 
   // 로그인 수행
   console.log("[AUTH SETUP] Step 4: Performing login");
   await loginPage.login(USERNAME, PASSWORD);
-  const urlAfterLogin = page.url();
-  // console.log("[AUTH SETUP] URL after login:", urlAfterLogin);
-  // if (urlAfterLogin.includes("global.musinsa.com")) {
-  //   console.warn("[AUTH SETUP] ⚠️ REDIRECTED TO GLOBAL SITE after login!");
-  // }
 
   // 로그인 후 리다이렉트 대기
   console.log("[AUTH SETUP] Step 5: Waiting for redirect");
-  // await page.waitForLoadState("networkidle", { timeout: 15000 });
   await page.waitForURL(/.*musinsa.*/, { timeout: 15000 });
-  // const finalUrl = page.url();
-  // console.log("[AUTH SETUP] Final URL:", finalUrl);
-  // if (finalUrl.includes("global.musinsa.com")) {
-  //   console.warn("[AUTH SETUP] ⚠️ FINAL URL IS GLOBAL SITE!");
-  // } else {
-  //   console.log("[AUTH SETUP] ✓ Final URL is Korean site");
-  // }
 
   // 로그인 성공 확인 (로그아웃 버튼이 보이는지)
   console.log("[AUTH SETUP] Step 6: Verifying logout button");

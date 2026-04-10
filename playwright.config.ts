@@ -59,7 +59,6 @@ export default defineConfig({
         : "off",
     headless: !!process.env.CI,
   },
-  globalTeardown: "./tests/fixtures/global-teardown.ts",
   /* Configure projects for major browsers */
   projects: [
     {
