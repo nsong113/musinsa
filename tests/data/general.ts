@@ -1,6 +1,6 @@
 export const USER_DATA = {
-  USERNAME: "skal9657",
-  PASSWORD: "qa123123",
+  USERNAME: process.env.MUSINSA_TEST_USER ?? "skal9657",
+  PASSWORD: process.env.MUSINSA_TEST_PASSWORD ?? "qa123123",
 };
 
 export const SEARCH_KEYWORD = "니트";

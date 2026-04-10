@@ -6,7 +6,11 @@
   "devDependencies": {
     "@playwright/test": "^1.57.0",
     "@types/node": "^25.0.9",
+    "dotenv": "^17.4.1",
     "tsconfig-paths": "^4.2.0"
   },
-  "scripts": {}
+  "scripts": {
+    "test": "playwright test",
+    "test:chrome": "PW_USE_SYSTEM_CHROME=1 playwright test"
+  }
 }

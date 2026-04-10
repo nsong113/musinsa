@@ -17,51 +17,20 @@ setup("authenticate", async ({ page }) => {
   // 메인 페이지로 이동
   console.log("[AUTH SETUP] Step 0: Navigating to domain");
   const basePage = new BasePage(page);
-  await page.goto("https://www.musinsa.com");
-  
+  await page.goto("https://www.musinsa.com", { waitUntil: "domcontentloaded" });
+
+  await page.context().addCookies([
+    { name: "gcc", value: "KR", domain: ".musinsa.com", path: "/" },
+    { name: "gcuc", value: "KRW", domain: ".musinsa.com", path: "/" },
+    { name: "glc", value: "ko", domain: ".musinsa.com", path: "/" },
+  ]);
+  await page.reload({ waitUntil: "domcontentloaded" });
+
   const urlAfterStep0 = page.url();
-  console.log("[AUTH SETUP] URL after Step 0:", urlAfterStep0);
+  console.log("[AUTH SETUP] URL after cookies/reload:", urlAfterStep0);
   if (urlAfterStep0.includes("global.musinsa.com")) {
     console.warn("[AUTH SETUP] ⚠️ REDIRECTED TO GLOBAL SITE at Step 0!");
-  } else {
-    // console.log("[AUTH SETUP] ✓ Still on Korean site (www.musinsa.com)");
   }
-
-  // console.log("[AUTH SETUP] Step 1: Setting up cookies for Korean site");
-
-  // 쿠키 설정 (한국 사이트로 강제)
-  // await page.context().addCookies([
-  //   {
-  //     name: "gcc",
-  //     value: "KR",
-  //     domain: ".musinsa.com",
-  //     path: "/",
-  //   },
-  //   {
-  //     name: "gcuc",
-  //     value: "KRW",
-  //     domain: ".musinsa.com",
-  //     path: "/",
-  //   },
-  //   {
-  //     name: "glc",
-  //     value: "ko",
-  //     domain: ".musinsa.com",
-  //     path: "/",
-  //   },
-  // ]);
-  // console.log("[AUTH SETUP] Cookies set (gcc=KR, gcuc=KRW, glc=ko)");
-
-  // 쿠키 적용을 위한 새로고침 (서버가 쿠키를 인식하도록)
-  // console.log("[AUTH SETUP] Step 1.5: Reloading page to apply cookies");
-  // await page.reload({ waitUntil: "networkidle" });
-  // const urlAfterReload = page.url();
-  // console.log("[AUTH SETUP] URL after reload:", urlAfterReload);
-  // if (urlAfterReload.includes("global.musinsa.com")) {
-  //   console.warn("[AUTH SETUP] ⚠️ REDIRECTED TO GLOBAL SITE after reload!");
-  // } else {
-  //   console.log("[AUTH SETUP] ✓ Still on Korean site after reload");
-  // }
 
   // 메인 페이지로 이동
   console.log("[AUTH SETUP] Step 2: Navigating to main page");

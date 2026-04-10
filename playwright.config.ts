@@ -1,13 +1,18 @@
 import { defineConfig, devices } from "@playwright/test";
 import "tsconfig-paths/register";
+import dotenv from "dotenv";
+import path from "path";
 
-/**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
- */
-// import dotenv from 'dotenv';
-// import path from 'path';
-// dotenv.config({ path: path.resolve(__dirname, '.env') });
+dotenv.config({ path: path.resolve(__dirname, ".env"), quiet: true });
+
+/** 번들 Chromium 미설치 환경에서 로컬 Google Chrome 사용: PW_USE_SYSTEM_CHROME=1 yarn playwright test */
+const useSystemChrome =
+  process.env.PW_USE_SYSTEM_CHROME === "1" ||
+  process.env.USE_SYSTEM_CHROME === "1";
+
+const desktopChrome = useSystemChrome
+  ? { ...devices["Desktop Chrome"], channel: "chrome" as const }
+  : { ...devices["Desktop Chrome"] };
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -43,7 +48,11 @@ export default defineConfig({
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: "on-first-retry",
     screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    /* ffmpeg는 `playwright install`에 포함. 미설치 환경(CI 포함)에서는 끔 */
+    video:
+      process.env.PLAYWRIGHT_RECORD_VIDEO === "1"
+        ? "retain-on-failure"
+        : "off",
     headless: !!process.env.CI,
   },
   globalTeardown: "./tests/fixtures/global-teardown.ts",
@@ -54,7 +63,7 @@ export default defineConfig({
       testMatch: /.*\.setup\.ts/,
       // teardown: "cleanup", //"cleanup" 때문에 이름이 "cleanup"인 프로젝트가 이어서 실행됨 (필요시)
       use: {
-        ...devices["Desktop Chrome"],
+        ...desktopChrome,
         headless: true,
         // 위치 정보 명시적으로 추가 (CI 환경에서 IP 기반 리다이렉트 방지)
         locale: "ko-KR",
@@ -76,7 +85,7 @@ export default defineConfig({
       testMatch: /.*\.spec\.ts/,
       testIgnore: [/.*\.setup\.ts/, /.*node_modules.*/],
       use: {
-        ...devices["Desktop Chrome"],
+        ...desktopChrome,
         storageState: "tests/fixtures/storage/authed.json",
       },
       dependencies: ["setup"], // "setup" 프로젝트가 성공해야 실행됨, 의존성 추가
