@@ -12,6 +12,10 @@
   "scripts": {
     "postinstall": "playwright install chromium",
     "test": "playwright test",
-    "test:chrome": "PW_USE_SYSTEM_CHROME=1 playwright test"
+    "test:chrome": "PW_USE_SYSTEM_CHROME=1 playwright test",
+    "vercel:login": "npx --yes vercel@latest login",
+    "ensure-report": "node -e \"require('fs').accessSync('playwright-reports/index.html');\"",
+    "deploy:report": "yarn ensure-report && npx --yes vercel@latest deploy playwright-reports",
+    "deploy:report:prod": "yarn ensure-report && npx --yes vercel@latest deploy playwright-reports --prod"
   }
 }

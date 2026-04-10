@@ -36,7 +36,28 @@ Chromium만 따로 다시 깔고 싶으면 `yarn playwright install chromium`입
 
 - HTML 리포트: `playwright-reports/` (실행 후 생성)
 - 실패 시 스크린샷·트레이스 등: `test-results/`
+- 보기: `yarn playwright show-report playwright-reports` (포트 충돌 시 `-- --port 9324` 등)
 
+### 로컬 리포트만 Vercel에 배포 (CI와 무관)
+
+GitHub Actions 성공·실패와 상관없이, **맥/로컬에서 `yarn test` 등으로 만든 `playwright-reports/`** 를 그대로 정적 사이트로 올리는 방식입니다.
+
+1. Vercel CLI는 전역 설치 없이 `npx`로 씁니다(`deploy:report`와 동일).
+2. 최초 한 번 로그인: `yarn vercel:login` (또는 `npx vercel@latest login`). `vercel`만 치면 `command not found`일 수 있음.
+3. 테스트 실행 후 리포트 생성 확인:
+   ```bash
+   yarn test
+   ```
+4. 배포:
+   ```bash
+   yarn deploy:report        # 미리보기(프리뷰) URL
+   yarn deploy:report:prod   # 프로덕션(연결된 도메인)
+   ```
+   처음에는 프로젝트 이름·팀을 물어보며, 이후 같은 디렉터리에 `.vercel`이 생깁니다.
+
+`deploy:report`는 `playwright-reports/index.html`이 없으면 바로 실패합니다(테스트를 먼저 돌렸는지 확인).
+
+CI용 시크릿(`VERCEL_TOKEN`)으로 자동 배포하고 싶다면 별도 워크플로에서 `vercel deploy playwright-reports --token=...`를 쓰면 됩니다. 위 스크립트는 **로컬에서 수동으로 올릴 때**를 기준으로 합니다.
 
 ## 프로젝트 구조
 
@@ -47,7 +68,7 @@ Chromium만 따로 다시 깔고 싶으면 `yarn playwright install chromium`입
 | `playwright.config.ts` | `baseURL`, 로케일·지역·타임존, `setup` / `chromium` 프로젝트, 리포터 |
 | `tsconfig.json` | TypeScript·경로 별칭 `@/*` → `./tests/*` |
 | `package.json` | 스크립트(`test`, `test:chrome`), `postinstall`로 Chromium 설치 |
-| `vercel.json` | 배포/미리보기용 설정(프로젝트에 따라 사용) |
+| `vercel.json` | Vercel 스키마 참고용(리포트는 `yarn deploy:report`로 `playwright-reports/`만 배포) |
 | `.env` | (선택) `MUSINSA_TEST_USER` 등 — `dotenv`로 로드(`playwright.config`에서 로드) |
 
 ### `tests/` 트리
