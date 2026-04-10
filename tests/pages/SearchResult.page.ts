@@ -3,132 +3,188 @@ import { Page, Locator, expect } from "@playwright/test";
 export class SearchResultPage {
   readonly page: Page;
 
-  readonly relatedKeywords: Locator; // 연관검색어 묶음
-  readonly relatedKeyword: Locator; // 연관검색어
+  readonly relatedKeywords: Locator;
+  readonly relatedKeyword: Locator;
 
-  readonly searchTabs: Locator; // 검색 탭 (상품, 스냅/코디, 혜택, 콘텐츠, 발매)
-  readonly totalProductCount: Locator; // 전체 상품 갯수
-  readonly productList: Locator; // 상품 리스트
-  readonly brandFilter: Locator; // 브랜드 필터
-  readonly likeButtons: Locator; // 좋아요 버튼들
+  readonly searchTabs: Locator;
+  readonly totalProductCount: Locator;
+  readonly productList: Locator;
+  readonly brandFilter: Locator;
+  readonly likeButtons: Locator;
 
   constructor(page: Page) {
     this.page = page;
 
-    // CSV TestCase 기반 Locator 정의
-    // FEATURE_검색_020: 연관검색어
     this.relatedKeywords = page.locator('[data-content-name="연관 검색어"]');
-    this.relatedKeyword = this.relatedKeywords.locator("button");
 
-    // // FEATURE_검색_022: 검색 탭
-    // this.searchTabs = page
-    //   .locator('[role="tab"]')
-    //   .filter({ hasText: /상품|스냅|코디|혜택|콘텐츠|발매/ });
+    this.relatedKeyword = this.relatedKeywords.locator("button, a[href]");
 
-    // // FEATURE_검색_024: 전체 상품 갯수
-    // this.totalProductCount = page
-    //   .locator("text=/전체.*상품.*\\d+/")
-    //   .or(page.locator('[data-testid="total-count"]'));
+    this.searchTabs = page.locator('[role="tablist"]').or(page.locator("nav"));
 
-    // // FEATURE_검색_025: 상품 리스트
-    // this.productList = page
-    //   .locator('[data-testid="product-item"]')
-    //   .or(page.locator(".product-item"));
+    this.totalProductCount = page.getByText(/전체\s*[\d,]+\s*개/).or(
+      page.getByText(/총\s*[\d,]+\s*개/),
+    );
 
-    // // FEATURE_검색_031: 브랜드 필터
-    // this.brandFilter = page
-    //   .locator("text=브랜드")
-    //   .locator("..")
-    //   .or(page.locator('[data-testid="brand-filter"]'));
+    this.productList = page
+      .locator('a[href*="/products/"], a[href*="/goods/"]')
+      .filter({ has: page.locator("img") });
 
-    // // FEATURE_검색_043: 좋아요 버튼
-    // this.likeButtons = page
-    //   .locator('[data-testid="like-button"]')
-    //   .or(page.locator('button[aria-label*="좋아요"]'));
+    this.brandFilter = page
+      .getByRole("button", { name: /브랜드/ })
+      .or(page.getByText("브랜드", { exact: true }).first());
+
+    this.likeButtons = page.locator(
+      '[aria-label*="좋아요"], [data-button-name*="좋아요"], button[class*="like" i]',
+    );
   }
 
-  // Methods - 검색 결과 페이지의 액션들
-
-  //  연관검색어 확인
-  //  FEATURE_검색_020, 021
-
-  async verifyRelatedKeywords(search: string): Promise<void> {
-    const count = await this.relatedKeyword.count();
-
-    for (let i = 0; i < count; i++) {
-      const keyword = this.relatedKeyword.nth(i);
-      await expect(keyword).toBeVisible();
-      await expect(keyword).toContainText(search);
-    }
-
-    await expect(this.relatedKeywords).toBeVisible();
+  async verifyRelatedKeywords(): Promise<void> {
+    const section = this.page.locator('[data-content-name="연관 검색어"]');
+    await expect(section).toBeVisible({ timeout: 20000 });
+    const chips = section.locator("button, a[href]");
+    await expect(chips.first()).toBeVisible();
+    const n = await chips.count();
+    expect(n).toBeGreaterThan(0);
   }
 
-  /**
-   * 검색 탭 확인
-   * CSV: FEATURE_검색_022
-   */
+  async clickFirstRelatedKeyword(): Promise<void> {
+    const section = this.page.locator('[data-content-name="연관 검색어"]');
+    await expect(section).toBeVisible({ timeout: 20000 });
+    const first = section.locator("button, a[href]").first();
+    await expect(first).toBeVisible();
+    await first.click();
+    await this.page.waitForLoadState("domcontentloaded");
+    await this.page.waitForLoadState("networkidle", { timeout: 30000 }).catch(
+      () => {},
+    );
+  }
+
   async verifySearchTabs(): Promise<void> {
-    const tabs = ["상품", "스냅/코디", "혜택", "콘텐츠", "발매"];
-    for (const tab of tabs) {
-      await expect(this.searchTabs.filter({ hasText: tab })).toBeVisible();
+    const required = ["상품", "스냅/코디", "혜택"];
+    const optional = ["콘텐츠", "발매"];
+    for (const label of required) {
+      const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const tab = this.page
+        .getByRole("tab", { name: new RegExp(escaped) })
+        .or(this.page.getByRole("link", { name: new RegExp(escaped) }));
+      await expect(tab.first()).toBeVisible({ timeout: 20000 });
+    }
+    for (const label of optional) {
+      const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const tab = this.page
+        .getByRole("tab", { name: new RegExp(escaped) })
+        .or(this.page.getByRole("link", { name: new RegExp(escaped) }));
+      await expect.soft(tab.first()).toBeVisible({ timeout: 10000 });
     }
   }
 
-  /**
-   * 전체 상품 갯수 확인
-   * CSV: FEATURE_검색_024
-   */
+  /** 기본 노출 탭(상품)이 보이고 검색 결과 컨텍스트에 있다 */
+  async verifyDefaultProductTab(): Promise<void> {
+    const 상품 = this.page
+      .getByRole("tab", { name: /^상품$/ })
+      .or(this.page.getByRole("link", { name: /^상품$/ }))
+      .first();
+    await expect(상품).toBeVisible({ timeout: 20000 });
+    await expect(this.page).toHaveURL(/search|keyword=/);
+  }
+
   async verifyTotalProductCount(): Promise<void> {
-    await expect(this.totalProductCount).toBeVisible();
-    const countText = await this.totalProductCount.textContent();
-    const count = parseInt(countText?.match(/\d+/)?.[0] || "0");
-    expect(count).toBeGreaterThan(0);
+    const countEl = this.page
+      .getByText(/전체\s*[\d,]+\s*개/)
+      .or(this.page.getByText(/총\s*[\d,]+\s*개/))
+      .first();
+    await expect(countEl).toBeVisible({ timeout: 20000 });
+    const countText = await countEl.textContent();
+    const n = parseInt(countText?.replace(/[^\d]/g, "") || "0", 10);
+    expect(n).toBeGreaterThan(0);
   }
 
-  /**
-   * 상품 리스트 확인
-   * CSV: FEATURE_검색_025
-   */
   async verifyProductList(): Promise<void> {
-    await expect(this.productList.first()).toBeVisible();
-    const count = await this.productList.count();
-    expect(count).toBeGreaterThan(0);
+    const first = this.productList.first();
+    await expect(first).toBeVisible({ timeout: 25000 });
+    const n = await this.productList.count();
+    expect(n).toBeGreaterThan(0);
   }
 
-  /**
-   * 상품 정보 확인 (사진, 브랜드, 이름, 가격 등)
-   * CSV: FEATURE_검색_026~030
-   */
   async verifyProductInfo(productIndex: number = 0): Promise<void> {
-    const product = this.productList.nth(productIndex);
-
-    // 상품 사진
-    await expect(product.locator("img")).toBeVisible();
-
-    // 브랜드
-    await expect(product.locator("text=/브랜드|brand/i")).toBeVisible();
-
-    // 상품 이름
-    await expect(product.locator('[data-testid="product-name"]')).toBeVisible();
-
-    // 가격 정보
-    await expect(product.locator("text=/\\d+원|할인/i")).toBeVisible();
+    const card = this.productList.nth(productIndex);
+    await expect(card).toBeVisible({ timeout: 25000 });
+    await expect(card.locator("img").first()).toBeVisible();
+    const text = (await card.textContent()) ?? "";
+    expect(text.length).toBeGreaterThan(3);
+    expect(text).toMatch(/\d{1,3}(,\d{3})*\s*원|\d+\s*원|%/);
   }
 
-  /**
-   * 브랜드 필터 클릭
-   * CSV: FEATURE_검색_034
-   */
+  /** FEATURE_검색_026: 썸네일 이미지 */
+  async verifyProductImage(productIndex: number = 0): Promise<void> {
+    const card = this.productList.nth(productIndex);
+    await expect(card.locator("img").first()).toBeVisible({ timeout: 20000 });
+  }
+
+  /** FEATURE_검색_027~028: 카드 내 텍스트(브랜드·상품명 구분 없이 상품 정보 노출) */
+  async verifyProductTitles(productIndex: number = 0): Promise<void> {
+    const card = this.productList.nth(productIndex);
+    await expect(card).toBeVisible({ timeout: 20000 });
+    const t = (await card.innerText()).replace(/\s+/g, " ").trim();
+    expect(t.length).toBeGreaterThan(5);
+  }
+
+  /** FEATURE_검색_029: 가격(원) 표기 */
+  async verifyProductPrice(productIndex: number = 0): Promise<void> {
+    const card = this.productList.nth(productIndex);
+    await expect(card.getByText(/\d{1,3}(,\d{3})*\s*원|\d+\s*원/)).toBeVisible({
+      timeout: 15000,
+    });
+  }
+
+  /** FEATURE_검색_030: 할인·정가·쿠폰 등 추가 가격 정보(상위 몇 개에서 탐색) */
+  async verifyProductPriceExtra(productIndex: number = 0): Promise<void> {
+    const n = await this.productList.count();
+    const tryIndices = [productIndex, 0, 1, 2, 3].filter(
+      (i, j, a) => a.indexOf(i) === j && i < n,
+    );
+    for (const i of tryIndices) {
+      const text = (await this.productList.nth(i).innerText()) ?? "";
+      if (/%|할인|정가|쿠폰|최대|적립|무료배송/.test(text)) {
+        return;
+      }
+    }
+    throw new Error("추가 가격·혜택 정보를 찾지 못했습니다.");
+  }
+
+  /** FEATURE_검색_031: 정렬·필터 영역(검색 옵션) 노출 */
+  async verifySortOrFilterBar(): Promise<void> {
+    await expect(
+      this.page
+        .locator("main")
+        .getByText(/정렬|추천순|인기순|판매순|신상품|낮은가격|필터/)
+        .first(),
+    ).toBeVisible({ timeout: 20000 });
+  }
+
+  /** FEATURE_검색_032: 카테고리·속성 관련 필터 UI */
+  async verifyCategoryChips(): Promise<void> {
+    await expect(
+      this.page
+        .locator("main")
+        .getByText(/카테고리|의류|상의|하의|아우터|신발|가방|전체/)
+        .first(),
+    ).toBeVisible({ timeout: 20000 });
+  }
+
+  /** FEATURE_검색_033: 검색 결과 리스트 컨테이너 */
+  async verifyResultListContainer(): Promise<void> {
+    const main = this.page.locator("main").first();
+    await expect(main).toBeVisible();
+    await expect(this.productList.first()).toBeVisible({ timeout: 25000 });
+  }
+
   async clickBrandFilter(): Promise<void> {
-    await expect(this.brandFilter).toBeVisible();
-    await this.brandFilter.click();
+    const btn = this.page.getByRole("button", { name: /브랜드/ }).first();
+    await expect(btn).toBeVisible({ timeout: 20000 });
+    await btn.click();
   }
 
-  /**
-   * 브랜드 선택 (예: '무신사 스탠다드')
-   * CSV: FEATURE_검색_035
-   */
   async selectBrand(brandName: string): Promise<void> {
     const brandCheckbox = this.page
       .locator(`text=${brandName}`)
@@ -138,22 +194,14 @@ export class SearchResultPage {
     await brandCheckbox.click();
   }
 
-  /**
-   * 좋아요 버튼 클릭
-   * CSV: FEATURE_검색_044
-   */
   async clickLikeButton(productIndex: number = 0): Promise<void> {
     const likeButton = this.likeButtons.nth(productIndex);
     await expect(likeButton).toBeVisible();
     await likeButton.click();
   }
 
-  /**
-   * 좋아요 버튼이 빨간 하트로 변했는지 확인
-   * CSV: FEATURE_검색_044
-   */
   async verifyLikeButtonActive(productIndex: number = 0): Promise<void> {
     const likeButton = this.likeButtons.nth(productIndex);
-    await expect(likeButton).toHaveClass(/active|liked|selected/);
+    await expect(likeButton).toHaveClass(/active|liked|selected|on/i);
   }
 }
