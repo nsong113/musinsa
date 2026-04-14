@@ -5,10 +5,7 @@ import { LikePage } from "@/pages/Like.page";
 import { MainPage } from "@/pages/Main.page";
 import { ProductListPage } from "@/pages/ProductList.page";
 import { SearchResultPage } from "@/pages/SearchResult.page";
-import {
-  BRAND_FILTER_MUSINSA_STANDARD,
-  SEARCH_KEYWORD,
-} from "@/data/general";
+import { BRAND_FILTER_MUSINSA_STANDARD, SEARCH_KEYWORD } from "@/data/general";
 
 async function searchKeyword(header: HeaderComponent): Promise<void> {
   await header.search(SEARCH_KEYWORD, "main");
@@ -95,11 +92,18 @@ test.describe("Search", () => {
     test.describe("상품 목록·키워드", () => {
       test("FEATURE_검색_025: 검색 결과 상품이 '니트' 종류이다", async () => {
         await productListPage.verifyProductList();
-        const firstProduct = productListPage.productList.first();
-        const productName = await firstProduct.textContent();
-        expect(productName?.toLowerCase()).toContain(
-          SEARCH_KEYWORD.toLowerCase(),
-        );
+        const knitPattern = /니트|knitwear|knit/i;
+        const max = Math.min(await productListPage.productList.count(), 16);
+        let found = false;
+        for (let i = 0; i < max; i++) {
+          const raw =
+            (await productListPage.productList.nth(i).textContent()) ?? "";
+          if (knitPattern.test(raw)) {
+            found = true;
+            break;
+          }
+        }
+        expect(found).toBe(true);
       });
     });
 

@@ -39,9 +39,9 @@ export class SearchResultPage extends BasePage {
     await this.dismissPointerBlockingOverlays();
     await first.click({ force: true });
     await this.page.waitForLoadState("domcontentloaded");
-    await this.page.waitForLoadState("networkidle", { timeout: 30000 }).catch(
-      () => {},
-    );
+    await this.page
+      .waitForLoadState("networkidle", { timeout: 30000 })
+      .catch(() => {});
   }
 
   async verifySearchTabs(): Promise<void> {
@@ -115,7 +115,12 @@ export class SearchResultPage extends BasePage {
     const coach = this.page
       .getByRole("dialog")
       .filter({ hasText: /더 똑똑해진|가격 필터 안내|가격 분포/ });
-    if (await coach.first().isVisible().catch(() => false)) {
+    if (
+      await coach
+        .first()
+        .isVisible()
+        .catch(() => false)
+    ) {
       await coach
         .first()
         .getByRole("button", { name: "닫기" })
@@ -139,7 +144,10 @@ export class SearchResultPage extends BasePage {
     if (await chip.isVisible().catch(() => false)) {
       await chip.click();
     } else {
-      await this.page.getByRole("button", { name: /브랜드/ }).first().click();
+      await this.page
+        .getByRole("button", { name: /브랜드/ })
+        .first()
+        .click();
     }
     await this.dismissFilterCoachmarkIfPresent();
   }
@@ -177,7 +185,9 @@ export class SearchResultPage extends BasePage {
 
   /** 모달 시트 또는(검색 PC) 메인 내 인라인 브랜드 칩 영역 */
   private async brandSelectionPanel(): Promise<Locator> {
-    const dlg = this.page.locator('[aria-modal="true"], [role="dialog"]').first();
+    const dlg = this.page
+      .locator('[aria-modal="true"], [role="dialog"]')
+      .first();
     if (await dlg.isVisible().catch(() => false)) return dlg;
     return this.page.locator("main");
   }
@@ -200,7 +210,9 @@ export class SearchResultPage extends BasePage {
     await expect(brandLine().first()).toBeVisible({ timeout: 25000 });
 
     const shortQuery = brandName.replace(/\s+/g, "").slice(0, 4);
-    const searchInput = panel.locator('input[type="search"], input[type="text"]').first();
+    const searchInput = panel
+      .locator('input[type="search"], input[type="text"]')
+      .first();
     if (await searchInput.isVisible().catch(() => false)) {
       await searchInput.fill(shortQuery);
       await this.page.waitForTimeout(600);
@@ -272,9 +284,7 @@ export class SearchResultPage extends BasePage {
     for (let i = 0; i < nRow; i++) {
       const el = row.nth(i);
       const raw =
-        (await el.getAttribute("aria-label")) ??
-        (await el.innerText()) ??
-        "";
+        (await el.getAttribute("aria-label")) ?? (await el.innerText()) ?? "";
       extractFrom(raw);
     }
     if (nums.length === 0) {
@@ -284,7 +294,9 @@ export class SearchResultPage extends BasePage {
     if (nums.length === 0) {
       const sortRow = this.page
         .locator("main div")
-        .filter({ has: this.page.getByText(/추천순|인기순|판매순|낮은가격|신상품/) })
+        .filter({
+          has: this.page.getByText(/추천순|인기순|판매순|낮은가격|신상품/),
+        })
         .first();
       const barText = await sortRow.innerText().catch(() => "");
       let m: RegExpExecArray | null;
@@ -312,15 +324,17 @@ export class SearchResultPage extends BasePage {
     } else {
       const formatted = count.toLocaleString("ko-KR");
       await this.page
-        .getByRole("button", { name: new RegExp(`${formatted.replace(/,/g, "[,]")}`) })
+        .getByRole("button", {
+          name: new RegExp(`${formatted.replace(/,/g, "[,]")}`),
+        })
         .filter({ hasText: /보기/ })
         .first()
         .click({ timeout: 15000 });
     }
     await this.page.waitForLoadState("domcontentloaded");
-    await this.page.waitForLoadState("networkidle", { timeout: 30000 }).catch(
-      () => {},
-    );
+    await this.page
+      .waitForLoadState("networkidle", { timeout: 30000 })
+      .catch(() => {});
     await expect(
       this.page.locator("main").locator('a[href*="/products/"]').first(),
     ).toBeVisible({ timeout: 45000 });
