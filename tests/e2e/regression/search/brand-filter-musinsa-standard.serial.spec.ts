@@ -60,9 +60,7 @@ test.describe("Search · 브랜드 필터 무신사 스탠다드 (035~044)", () 
   });
 
   test("FEATURE_검색_037: [s개의 상품 보기] 노출", async () => {
-    await expect(chainSearchResult.viewProductsButton(s)).toBeVisible({
-      timeout: 15000,
-    });
+    await chainSearchResult.verifyViewProductsControlVisible(s);
   });
 
   test("FEATURE_검색_038: n >= s", async () => {

@@ -51,11 +51,20 @@ setup("authenticate", async ({ page }) => {
 
   // 로그인 후 리다이렉트 대기
   // console.log("[AUTH SETUP] Step 5: Waiting for redirect");
-  await page.waitForURL(/.*musinsa.*/, { timeout: 15000 });
+  await page.waitForLoadState("domcontentloaded");
+  await page.waitForLoadState("networkidle", { timeout: 30000 }).catch(() => {});
+  await page.waitForURL(/musinsa\.com/i, { timeout: 30000 }).catch(() => {});
+
+  // 로그인 후 메인으로 복귀(헤더 영역 기준 검증을 위해)
+  await basePage.goToMain();
+  await page.waitForLoadState("domcontentloaded");
+  await page.waitForLoadState("networkidle", { timeout: 30000 }).catch(() => {});
 
   // 로그인 성공 확인 (로그아웃 버튼이 보이는지)
   // console.log("[AUTH SETUP] Step 6: Verifying logout button");
-  await expect(header.logoutButton).toBeVisible({ timeout: 10000 });
+  // 팝업/딤이 헤더 클릭/표시를 가릴 수 있어 Escape로 한번 정리
+  await page.keyboard.press("Escape").catch(() => {});
+  await expect(header.logoutButton).toBeVisible({ timeout: 20000 });
   // console.log("[AUTH SETUP] Logout button is visible - login successful");
 
   // 인증 상태 저장

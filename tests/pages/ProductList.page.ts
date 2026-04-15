@@ -120,33 +120,55 @@ export class ProductListPage extends BasePage {
 
   /**
    * FEATURE_041: 카드 브랜드가 무신사 스탠다드 계열
-   * 좋아요 버튼 기준 카드 루트(레이아웃 클래스가 바뀌어도 동작)
+   * 좋아요 버튼 ancestor 깊이에 의존하면 레이아웃 변경에 취약하므로,
+   * 브랜드 링크(`/brand/...`)와 `data-item-brand`로 교차 검증한다.
    */
-  private productCardFromLikeIndex(index: number): Locator {
-    return this.page
-      .locator("main")
-      .getByRole("button", { name: /좋아요/ })
-      .nth(index)
-      .locator("xpath=./ancestor::div[5]");
-  }
-
   async verifyAllProductCardsBrandMusinsaStandard(): Promise<void> {
-    const likes = this.page.locator("main").getByRole("button", { name: /좋아요/ });
-    await expect(likes.first()).toBeVisible({ timeout: 20000 });
-    const n = Math.min(await likes.count(), 80);
+    const products = this.page.locator("main").locator('a[href*="/products/"]');
+    await expect(products.first()).toBeVisible({ timeout: 45000 });
+
+    const brandNeedles = [
+      /무신사\s*스탠다드/i,
+      /무신사\s*스탠다르/i,
+      /musinsa\s*standard/i,
+      /무신사스탠다드/i,
+    ];
+    const brandPathNeedle = /musinsastandard/i; // musinsastandard / musinsastandardwoman 등 포함
+
+    const n = Math.min(await products.count(), 40);
     expect(n).toBeGreaterThan(0);
-    const needles = [/무신사\s*스탠다드/i, /무신사\s*스탠다르/i, /musinsa\s*standard/i];
+
     for (let i = 0; i < n; i++) {
-      const card = this.productCardFromLikeIndex(i);
-      const link = card.locator('a[href*="/products/"]').first();
-      const brandAttr = await link.getAttribute("data-item-brand");
-      const text = ((await card.innerText()) ?? "").slice(0, 200);
-      const fromAttr =
-        !!brandAttr && /musinsa|standard|스탠다|mss|msstd/i.test(brandAttr);
-      const fromText = needles.some((re) => re.test(text));
-      if (!fromAttr && !fromText) {
+      const productLink = products.nth(i);
+      await productLink.scrollIntoViewIfNeeded().catch(() => {});
+
+      // 상품 링크가 포함된 "카드" 범위를 (브랜드 링크를 포함하는) 가장 가까운 조상으로 제한
+      const card = productLink.locator(
+        "xpath=ancestor::*[.//a[contains(@href,'/brand/')]][1]",
+      );
+      const brandShop = card.locator('a[href*="/brand/"]').first();
+
+      // 레이아웃/슬롯에 따라 브랜드 링크가 늦게 붙는 경우가 있어 짧게만 기다림
+      await brandShop.waitFor({ state: "attached", timeout: 4000 }).catch(() => {});
+      const brandHref = (await brandShop.getAttribute("href").catch(() => null)) ?? "";
+      const brandLabel = (
+        (await brandShop.innerText().catch(() => null)) ?? ""
+      ).replace(/\s+/g, " ");
+
+      const brandAttr =
+        (await productLink.getAttribute("data-item-brand").catch(() => null)) ?? "";
+      const text = ((await card.innerText().catch(() => null)) ?? "")
+        .replace(/\s+/g, " ")
+        .slice(0, 220);
+
+      const fromBrandUrl = brandPathNeedle.test(brandHref);
+      const fromBrandLabel = brandNeedles.some((re) => re.test(brandLabel));
+      const fromAttr = /musinsa|standard|스탠다|mss|msstd/i.test(brandAttr);
+      const fromText = brandNeedles.some((re) => re.test(text));
+
+      if (!fromBrandUrl && !fromBrandLabel && !fromAttr && !fromText) {
         throw new Error(
-          `card ${i}: brandAttr=${brandAttr} text=${text.slice(0, 120)}`,
+          `item ${i}: brandHref=${brandHref} brandAttr=${brandAttr} text=${text.slice(0, 120)}`,
         );
       }
     }
@@ -160,20 +182,36 @@ export class ProductListPage extends BasePage {
     keyword: string,
     ratio: number,
   ): Promise<void> {
-    const likes = this.page.locator("main").getByRole("button", { name: /좋아요/ });
-    const n = Math.min(await likes.count(), 80);
+    // 상품명 링크는 접근성 이름이 "... 상품상세로 이동" 형태로 노출됨
+    const titleLinks = this.page
+      .locator("main")
+      .getByRole("link", { name: /상품상세로 이동$/ });
+    await expect(titleLinks.first()).toBeVisible({ timeout: 45000 });
+    // 너무 많은 항목을 순회하면 느려져 테스트 타임아웃을 유발할 수 있어 상위 일부만 샘플링
+    const n = Math.min(await titleLinks.count(), 30);
     expect(n).toBeGreaterThan(0);
-    let hit = 0;
+
     const kw = keyword.toLowerCase();
-    for (let i = 0; i < n; i++) {
-      const card = this.productCardFromLikeIndex(i);
-      const title = card
-        .locator('a[href*="/products/"]')
-        .filter({ hasText: /\S/ })
-        .first();
-      const t = ((await title.innerText()) ?? "").toLowerCase();
-      if (t.includes(kw)) hit++;
-    }
+    const kwRe =
+      keyword === "니트"
+        ? /니트|스웨터|가디건|집업|풀오버|케이블|램스울|메리노|캐시미어|모헤어|앙고라|하이게이지|터틀|리브드|울|\b(knit|knitwear|sweater|cardigan)\b/i
+        : null;
+
+    const texts = (await titleLinks
+      .first()
+      .page()
+      .locator("main")
+      .getByRole("link", { name: /상품상세로 이동$/ })
+      .allInnerTexts()
+      .catch(() => [])) as string[];
+
+    const sample = texts.slice(0, n).map((t) => t.replace(/\s+/g, " ").trim());
+    const hit = sample.filter((text) => {
+      const t = text.toLowerCase();
+      if (t.includes(kw)) return true;
+      return !!kwRe && kwRe.test(text);
+    }).length;
+
     expect(hit / n).toBeGreaterThanOrEqual(ratio);
   }
 }

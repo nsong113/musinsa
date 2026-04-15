@@ -22,7 +22,10 @@ export class HeaderComponent {
   constructor(page: Page) {
     this.page = page;
 
-    this.loginButton = page.getByRole("link", { name: "로그인 페이지로 이동" });
+    // 접근성 라벨/문구 변경(로그인 페이지로 이동 등) 대비
+    this.loginButton = page
+      .getByRole("link", { name: /로그인/ })
+      .or(page.getByText(/^로그인$/).first());
     this.logoutButton = page.getByRole("link", { name: "로그아웃" });
 
     this.searchInput = page.getByRole("textbox", { name: "검색창" });
@@ -31,7 +34,9 @@ export class HeaderComponent {
     this.searchTabInput = page.getByPlaceholder("검색어를 입력하세요");
     this.searchTabBtn = page.getByRole("button", { name: "검색", exact: true });
     /** 사이트 카피 변경 대비(실시간 인기 등) */
-    this.searchTabRecommend = page.getByText(/인기\s*검색어|실시간\s*인기|추천\s*검색어/);
+    this.searchTabRecommend = page.getByText(
+      /인기\s*검색어|실시간\s*인기|추천\s*검색어/,
+    );
   }
 
   // Locators
@@ -39,9 +44,9 @@ export class HeaderComponent {
   // Methods
 
   async clickingLoginBtn(): Promise<LoginPage> {
-    await expect(this.loginButton).toBeVisible({ timeout: 10000 });
+    await expect(this.loginButton.first()).toBeVisible({ timeout: 15000 });
 
-    await this.loginButton.click({ timeout: 10000 });
+    await this.loginButton.first().click({ timeout: 15000 });
 
     await this.page.waitForURL(/.*\/login.*/);
     return new LoginPage(this.page);

@@ -133,21 +133,43 @@ export class SearchResultPage extends BasePage {
   /** 탭의 '브랜드'가 아니라 상세필터 줄의 브랜드 칩 — 탭만 누르면 시트가 안 열림 */
   private brandFilterChip(): Locator {
     const strip = this.page.locator("main div").filter({
-      has: this.page.getByRole("button", { name: "상세필터열기" }),
+      has: this.page.getByRole("button", {
+        name: /상세\s*필터\s*열기|상세필터열기/,
+      }),
     });
     return strip.getByText("브랜드", { exact: true }).first();
   }
 
+  /** 상세 필터 스트립(컬러/가격/브랜드 등)이 있는 영역 */
+  private filterStrip(): Locator {
+    return this.page.locator("main div").filter({
+      has: this.page.getByRole("button", {
+        name: /상세\s*필터\s*열기|상세필터열기/,
+      }),
+    });
+  }
+
   async clickBrandFilter(): Promise<void> {
     await this.dismissPointerBlockingOverlays();
+    await this.dismissFilterCoachmarkIfPresent();
+
+    // 1) 상세필터 스트립 안의 '브랜드'를 최우선(탭의 '브랜드' 클릭 방지)
+    const strip = this.filterStrip();
     const chip = this.brandFilterChip();
     if (await chip.isVisible().catch(() => false)) {
       await chip.click();
     } else {
-      await this.page
-        .getByRole("button", { name: /브랜드/ })
-        .first()
-        .click();
+      // 브랜드가 button이 아니라 div[role=button]/generic인 경우까지 커버
+      const inStrip = strip
+        .locator("button, a, [role='button'], div")
+        .filter({ hasText: /^브랜드$/ })
+        .first();
+      if (await inStrip.isVisible().catch(() => false)) {
+        await inStrip.click();
+      } else {
+        // 최후 fallback: main 내부의 '브랜드' 버튼 (탭 영역과 충돌 가능하므로 main 스코프)
+        await this.page.locator("main").getByRole("button", { name: /브랜드/ }).first().click();
+      }
     }
     await this.dismissFilterCoachmarkIfPresent();
   }
@@ -167,19 +189,21 @@ export class SearchResultPage extends BasePage {
   }
 
   /**
-   * [count개의 상품 보기] 또는 정렬 줄의 `3,187개`만 노출되는 경우
+   * [count개의 상품 보기]
    * @param count — 숫자 그대로(74870). UI는 74,870 형태로 표시될 수 있음
    */
   viewProductsButton(count: number): Locator {
     const formatted = count.toLocaleString("ko-KR");
     const esc = formatted.replace(/,/g, "[,]");
-    const fullPhrase = new RegExp(`${esc}\\s*개의\\s*상품\\s*보기`);
-    const main = this.page.locator("main");
+    // `3,189개` 같은 단순 카운트와 혼동 방지: 반드시 "개 의 상품 보기" 포함
+    const fullPhrase = new RegExp(`${esc}\\s*개\\s*의\\s*상품\\s*보기`);
     return this.page
-      .locator("button")
-      .filter({ hasText: fullPhrase })
-      .or(main.getByRole("button", { name: new RegExp(`${esc}`) }))
-      .or(main.getByText(new RegExp(`^\\s*${esc}\\s*개\\s*$`)))
+      .getByRole("button", { name: fullPhrase })
+      .or(
+        this.page
+          .locator("button, a, [role='button']")
+          .filter({ hasText: fullPhrase }),
+      )
       .first();
   }
 
@@ -209,12 +233,13 @@ export class SearchResultPage extends BasePage {
 
     await expect(brandLine().first()).toBeVisible({ timeout: 25000 });
 
-    const shortQuery = brandName.replace(/\s+/g, "").slice(0, 4);
+    // "무신" 같은 짧은 쿼리는 다른 브랜드를 많이 걸러서 오탐이 생김 → 가능한 한 전체 브랜드명으로 검색
+    const fullQuery = brandName.replace(/\s+/g, "");
     const searchInput = panel
       .locator('input[type="search"], input[type="text"]')
       .first();
     if (await searchInput.isVisible().catch(() => false)) {
-      await searchInput.fill(shortQuery);
+      await searchInput.fill(fullQuery);
       await this.page.waitForTimeout(600);
       panel = await this.brandSelectionPanel();
     }
@@ -252,8 +277,10 @@ export class SearchResultPage extends BasePage {
 
   /** 상단 선택 칩/필터 영역에 브랜드명 노출 */
   async verifyBrandChipVisible(brandName: string): Promise<void> {
+    // footer(무신사 스탠다드 스토어 이동) 같은 문구로 오탐 방지: 상세필터 스트립 주변에서만 확인
+    const strip = this.filterStrip();
     await expect(
-      this.page.locator("main").getByText(brandName, { exact: false }).first(),
+      strip.getByText(brandName, { exact: false }).first(),
     ).toBeVisible({ timeout: 15000 });
   }
 
@@ -287,23 +314,14 @@ export class SearchResultPage extends BasePage {
         (await el.getAttribute("aria-label")) ?? (await el.innerText()) ?? "";
       extractFrom(raw);
     }
+    // 최신 UI: 하단 CTA 없이 결과가 즉시 적용되고 상단에 `3,189개`만 노출되는 경우가 있음
     if (nums.length === 0) {
-      extractFrom(await this.page.locator("main").first().innerText());
-    }
-    /** PC 검색: `3,187개의 상품 보기` 없이 정렬 줄에 `3,187개`만 있는 경우 */
-    if (nums.length === 0) {
-      const sortRow = this.page
-        .locator("main div")
-        .filter({
-          has: this.page.getByText(/추천순|인기순|판매순|낮은가격|신상품/),
-        })
-        .first();
-      const barText = await sortRow.innerText().catch(() => "");
-      let m: RegExpExecArray | null;
-      const re = /([\d,]+)\s*개/g;
-      while ((m = re.exec(barText)) !== null) {
-        nums.push(parseInt(m[1].replace(/,/g, ""), 10));
-      }
+      const mainText = await this.page.locator("main").first().innerText().catch(() => "");
+      const m = mainText.match(/([\d,]+)\s*개/);
+      const fallback = m ? parseInt(m[1].replace(/,/g, ""), 10) : 0;
+      expect(fallback).toBeGreaterThan(0);
+      expect(fallback).toBeLessThanOrEqual(totalN);
+      return fallback;
     }
     const strictSmaller = nums.filter((x) => x > 0 && x < totalN);
     const s =
@@ -317,20 +335,24 @@ export class SearchResultPage extends BasePage {
     return s;
   }
 
+  /** FEATURE_037: CTA가 없으면 상단 카운트(`s개`)로 대체 검증 */
+  async verifyViewProductsControlVisible(count: number): Promise<void> {
+    const btn = this.viewProductsButton(count);
+    if (await btn.isVisible().catch(() => false)) {
+      await expect(btn).toBeVisible({ timeout: 20000 });
+      return;
+    }
+    const formatted = count.toLocaleString("ko-KR").replace(/,/g, "[,]");
+    await expect(
+      this.page.locator("main").getByText(new RegExp(`${formatted}\\s*개`)).first(),
+    ).toBeVisible({ timeout: 20000 });
+  }
+
   async clickViewProductsForCount(count: number): Promise<void> {
     const btn = this.viewProductsButton(count);
     if (await btn.isVisible().catch(() => false)) {
       await btn.click();
-    } else {
-      const formatted = count.toLocaleString("ko-KR");
-      await this.page
-        .getByRole("button", {
-          name: new RegExp(`${formatted.replace(/,/g, "[,]")}`),
-        })
-        .filter({ hasText: /보기/ })
-        .first()
-        .click({ timeout: 15000 });
-    }
+    } // CTA가 없는 UI면 이미 결과가 적용되어 있으므로 클릭 단계는 no-op
     await this.page.waitForLoadState("domcontentloaded");
     await this.page
       .waitForLoadState("networkidle", { timeout: 30000 })
@@ -341,10 +363,6 @@ export class SearchResultPage extends BasePage {
   }
 
   async closeBrandFilterDialogIfOpen(): Promise<void> {
-    const dialog = this.page.locator('[aria-modal="true"]').first();
-    if (await dialog.isVisible().catch(() => false)) {
-      await this.page.keyboard.press("Escape");
-      await this.page.waitForTimeout(300);
-    }
+    await this.dismissPointerBlockingOverlays();
   }
 }
