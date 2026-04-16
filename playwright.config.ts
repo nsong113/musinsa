@@ -66,7 +66,8 @@ export default defineConfig({
       testMatch: /.*\.setup\.ts/,
       use: {
         ...desktopChrome,
-        headless: true,
+        // 로컬에서는 chromium 스펙과 동일하게 헤디드로 맞춤(무신사 로그인·헤더 검증이 헤드리스에서만 실패하는 경우 완화)
+        headless: !!process.env.CI,
         locale: "ko-KR",
         timezoneId: "Asia/Seoul",
         geolocation: { longitude: 126.978, latitude: 37.5665 }, // 서울 좌표

@@ -1,5 +1,6 @@
 import { Page, Locator, expect } from "@playwright/test";
 import { BasePage } from "@/pages/Base.page";
+import type { ProductListCardSnapshot } from "@/types/product-snapshot";
 
 /** 검색·카테고리 등 공통 상품 그리드(카드) 검증 */
 export class ProductListPage extends BasePage {
@@ -18,6 +19,187 @@ export class ProductListPage extends BasePage {
     await expect(first).toBeVisible({ timeout: 25000 });
     const n = await this.productList.count();
     expect(n).toBeGreaterThan(0);
+  }
+
+  /**
+   * 검색 결과는 `UIItemContainer` 없이 그리드만 올 수 있어, 고유 product id 기준으로 카드·링크를 고른다.
+   */
+  private async resolveUniqueProductCard(productIndex: number): Promise<{
+    card: Locator;
+    productLink: Locator;
+  }> {
+    const links = this.page.locator('a[href*="/products/"]');
+    await expect(links.first()).toBeVisible({ timeout: 60000 });
+
+    const domIndex = await this.page.evaluate((ordWanted: number) => {
+      const seen = new Set<string>();
+      let ord = 0;
+      const list = document.querySelectorAll<HTMLAnchorElement>('a[href*="/products/"]');
+      for (let i = 0; i < list.length; i++) {
+        const m = list[i].href.match(/products\/(\d+)/);
+        if (!m || seen.has(m[1])) continue;
+        seen.add(m[1]);
+        if (ord === ordWanted) return i;
+        ord++;
+      }
+      return -1;
+    }, productIndex);
+
+    if (domIndex < 0) {
+      throw new Error(`고유 상품 카드를 찾지 못함: index=${productIndex}`);
+    }
+
+    const productLink = links.nth(domIndex);
+    const card = productLink.locator("xpath=ancestor::*[.//img][1]");
+    return { card, productLink };
+  }
+
+  /**
+   * 검색 결과 카드에서 상세 비교용 스냅샷 (FEATURE_상세_045~049)
+   * DOM 조회는 `evaluate` 한두 번으로 묶어 innerText/getAttribute 대기 타임아웃을 피한다.
+   */
+  async getListCardSnapshot(productIndex: number = 0): Promise<ProductListCardSnapshot> {
+    const { card, productLink } = await this.resolveUniqueProductCard(productIndex);
+    await expect(card).toBeVisible({ timeout: 20000 });
+
+    const href = (await productLink.getAttribute("href")) ?? "";
+    const idMatch = href.match(/\/products\/(\d+)/);
+    const productId = idMatch?.[1] ?? "";
+
+    const dataItemBrand =
+      (await productLink.getAttribute("data-item-brand").catch(() => null)) ?? "";
+
+    const cardData = await card.evaluate((el) => {
+      const root = el as HTMLElement;
+      const brandA = root.querySelector('a[href*="/brand/"]');
+      const img = root.querySelector("img");
+      const raw = root.innerText.replace(/\s+/g, " ").trim();
+      const brandHref = brandA?.getAttribute("href") ?? "";
+      const firstProduct = root.querySelector<HTMLAnchorElement>('a[href*="/products/"]');
+      const dataBrandId = firstProduct?.getAttribute("data-brand-id") ?? "";
+
+      let productName = "";
+      const productAnchors = root.querySelectorAll('a[href*="/products/"]');
+      for (const a of Array.from(productAnchors)) {
+        const ar = (a as HTMLAnchorElement).getAttribute("aria-label") ?? "";
+        if (/상품\s*상세로\s*이동\s*$/i.test(ar)) {
+          const core = ar.replace(/\s*상품\s*상세로\s*이동\s*$/i, "").trim();
+          if (core.length > productName.length) productName = core;
+        }
+      }
+      for (const a of Array.from(productAnchors)) {
+        const t = (a.textContent ?? "").replace(/\s+/g, " ").trim();
+        if (!t || /^[\d,%\s원~\-]+$/.test(t)) continue;
+        if (/상품\s*상세로\s*이동|상품상세로\s*이동/i.test(t)) continue;
+        if (t.length > productName.length) productName = t;
+      }
+      if (!productName) {
+        const first = productAnchors[0] as HTMLAnchorElement | undefined;
+        productName =
+          (first?.getAttribute("aria-label") ?? "").replace(/\s+/g, " ").trim() ||
+          (first?.getAttribute("data-item-name") ?? "").replace(/\s+/g, " ").trim() ||
+          (first?.innerText ?? "").replace(/\s+/g, " ").trim();
+      }
+      const dataItemName = firstProduct?.getAttribute("data-item-name") ?? "";
+
+      return {
+        rawCardText: raw,
+        imageSrc: img?.getAttribute("src") ?? "",
+        brandLabel: (brandA?.textContent ?? "").replace(/\s+/g, " ").trim(),
+        brandHref,
+        dataBrandId,
+        dataItemName,
+        productName,
+      };
+    });
+
+    let brandHref = cardData.brandHref;
+    if (!brandHref && cardData.dataBrandId) {
+      brandHref = `https://www.musinsa.com/brand/${cardData.dataBrandId}`;
+    }
+    if (!brandHref) {
+      const bid = await productLink.getAttribute("data-brand-id").catch(() => null);
+      if (bid) brandHref = `https://www.musinsa.com/brand/${bid}`;
+    }
+    if (!brandHref) {
+      const walked = await productLink.evaluate((el) => {
+        let p: HTMLElement | null = el as HTMLElement;
+        for (let i = 0; i < 14 && p; i++) {
+          const b = p.querySelector<HTMLAnchorElement>('a[href*="/brand/"]');
+          if (b?.href) return b.getAttribute("href") ?? b.href;
+          p = p.parentElement;
+        }
+        return "";
+      });
+      if (walked) brandHref = walked.startsWith("http") ? walked : `https://www.musinsa.com${walked}`;
+    }
+
+    let rawCardText = cardData.rawCardText;
+    if (rawCardText.length < 40) {
+      const walked = await productLink.evaluate((el) => {
+        let p: HTMLElement | null = el as HTMLElement;
+        for (let i = 0; i < 14 && p; i++) {
+          const t = p.innerText?.replace(/\s+/g, " ").trim() ?? "";
+          if (t.length > 50) return t;
+          p = p.parentElement;
+        }
+        return (el as HTMLElement).innerText?.replace(/\s+/g, " ").trim() ?? "";
+      });
+      if (walked.length > rawCardText.length) rawCardText = walked;
+    }
+
+    let brandLabel = cardData.brandLabel || dataItemBrand.replace(/\s+/g, " ").trim();
+    if (!brandLabel && dataItemBrand) brandLabel = dataItemBrand.replace(/\s+/g, " ").trim();
+
+    let productName =
+      cardData.dataItemName ||
+      cardData.productName;
+    if (/^상품\s*상세로\s*이동$/i.test(productName.trim())) productName = "";
+    if (!productName || productName.length < 8) {
+      const an = (await productLink.getAttribute("aria-label").catch(() => null)) ?? "";
+      const core = an.replace(/\s*상품\s*상세로\s*이동\s*$/i, "").trim();
+      if (core.length > 5) productName = core;
+    }
+    if (!productName) {
+      const lines = cardData.rawCardText.split(/\n/).map((l) => l.trim()).filter(Boolean);
+      productName =
+        lines.find((l) => l.length > 3 && !/^\d/.test(l) && !/원\s*$/.test(l)) ??
+        lines[0] ??
+        "";
+    }
+    if (!productName || productName.length < 8) {
+      const din = await productLink.getAttribute("data-item-name").catch(() => null);
+      if (din && din.length > 3) productName = din;
+    }
+    if (!productName || productName.length < 8) {
+      const lump = cardData.rawCardText.replace(/\s+/g, " ");
+      const m = lump.match(
+        /[A-Za-z가-힣()][A-Za-z0-9가-힣\s\-&,.]{10,120}/,
+      );
+      if (m) productName = m[0].trim();
+    }
+
+    return {
+      productId,
+      brandLabel,
+      brandHref: brandHref || "",
+      productName,
+      rawCardText,
+      imageSrc: cardData.imageSrc,
+      detailPathOrUrl: href,
+    };
+  }
+
+  /** 카드에서 상품 상세로 이동 (클릭보다 직접 이동이 딤·SPA에서 안정적) */
+  async openProductFromList(productIndex: number = 0): Promise<void> {
+    await this.dismissPointerBlockingOverlays();
+    const { productLink } = await this.resolveUniqueProductCard(productIndex);
+    await productLink.scrollIntoViewIfNeeded().catch(() => {});
+    const href = (await productLink.getAttribute("href")) ?? "";
+    if (!href) throw new Error("상품 링크 href 없음");
+    const absolute = new URL(href, "https://www.musinsa.com").toString();
+    await this.page.goto(absolute, { waitUntil: "domcontentloaded", timeout: 90000 });
+    await this.page.waitForURL(/\/products\/\d+/, { timeout: 60000 });
   }
 
   async verifyProductInfo(productIndex: number = 0): Promise<void> {
