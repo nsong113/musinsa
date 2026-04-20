@@ -36,7 +36,10 @@ export class BrandPage extends BasePage {
       name: /브랜드 상품 검색/,
     });
     this.brandProductSearchInput = page.getByPlaceholder("검색어를 입력하세요");
-    this.brandProductSearchSubmit = page.locator('button[aria-label="검색"]').last();
+    this.brandProductSearchSubmit = this.brandProductSearchInput
+      .locator('xpath=ancestor::*[.//button[@aria-label="검색"]][1]')
+      .locator('button[aria-label="검색"]')
+      .first();
   }
 
   async gotoMusinsaStandardBrand(): Promise<void> {

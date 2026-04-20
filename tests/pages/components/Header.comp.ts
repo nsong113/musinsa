@@ -65,7 +65,10 @@ export class HeaderComponent {
     await expect(this.searchTabInput).toBeVisible();
     await expect(this.searchTabBtn).toBeVisible();
 
-    await expect(this.searchTabRecommend).toBeVisible();
+    // UI가 바뀌면 '인기 검색어' 대신 #TAGS 등으로 노출될 수 있음
+    await expect(
+      this.searchTabRecommend.or(this.page.getByText("#TAGS")),
+    ).toBeVisible({ timeout: 15000 });
   }
 
   async focusSearchInput(mode: "main" | "tab") {

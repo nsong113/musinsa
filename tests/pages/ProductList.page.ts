@@ -167,6 +167,26 @@ export class ProductListPage extends BasePage {
         lines[0] ??
         "";
     }
+    // 마지막 폴백: 카드 텍스트에서 가격/할인/리뷰 등을 제거하고 상품명 후보를 추출
+    if (!productName || productName.length < 8) {
+      const raw = rawCardText.replace(/\s+/g, " ").trim();
+      const cleaned = raw
+        .replace(new RegExp(`^${brandLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*`, "i"), "")
+        .replace(/\b(단독|아울렛|옵션|여성|남성|내일.*도착보장|도착보장)\b/g, " ")
+        .replace(/\d{1,3}(?:,\d{3})*\s*원/g, " ")
+        .replace(/\b\d+(?:\.\d+)?\s*천\b/g, " ")
+        .replace(/\b\d+(?:\.\d+)?\s*만\b/g, " ")
+        .replace(/\b\d+(?:\.\d+)?\b/g, " ")
+        .replace(/\d+\s*%/g, " ")
+        .replace(/%/g, " ")
+        .replace(/[()]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      // 앞쪽 12~80자 정도를 상품명 후보로 사용
+      if (cleaned.length >= 8) {
+        productName = cleaned.slice(0, 80).trim();
+      }
+    }
     if (!productName || productName.length < 8) {
       const din = await productLink.getAttribute("data-item-name").catch(() => null);
       if (din && din.length > 3) productName = din;

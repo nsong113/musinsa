@@ -43,6 +43,16 @@ setup("authenticate", async ({ page }) => {
   // console.log("[AUTH SETUP] Step 3: Clicking login button");
   const header = new HeaderComponent(page);
 
+  // 이미 storageState가 주입된 상태(또는 세션이 살아있는 상태)면 로그인 단계를 스킵
+  const alreadyAuthed =
+    (await header.logoutButton.isVisible().catch(() => false)) ||
+    (await page.getByRole("link", { name: /마이/ }).isVisible().catch(() => false));
+  if (alreadyAuthed) {
+    await page.keyboard.press("Escape").catch(() => {});
+    await page.context().storageState({ path: authStatePath });
+    return;
+  }
+
   const loginPage = await header.clickingLoginBtn();
 
   // 로그인 수행

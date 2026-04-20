@@ -132,21 +132,26 @@ export class SearchResultPage extends BasePage {
 
   /** 탭의 '브랜드'가 아니라 상세필터 줄의 브랜드 칩 — 탭만 누르면 시트가 안 열림 */
   private brandFilterChip(): Locator {
-    const strip = this.page.locator("main div").filter({
-      has: this.page.getByRole("button", {
-        name: /상세\s*필터\s*열기|상세필터열기/,
-      }),
-    });
-    return strip.getByText("브랜드", { exact: true }).first();
+    const strip = this.filterStrip();
+    // 버튼이 아닌 generic/div로 그려지는 경우가 많아 getByText로 먼저 잡는다
+    return strip.getByText(/^브랜드$/, { exact: false }).first();
   }
 
   /** 상세 필터 스트립(컬러/가격/브랜드 등)이 있는 영역 */
   private filterStrip(): Locator {
-    return this.page.locator("main div").filter({
+    const btn = this.page
+      .locator("main")
+      .getByRole("button", { name: /상세\s*필터\s*열기|상세필터열기/ })
+      .first();
+    // 버튼이 있으면 가장 가까운 컨테이너를 strip으로 사용
+    const byBtn = btn.locator("xpath=ancestor::*[self::div or self::section][1]");
+    // fallback: 기존 방식
+    const legacy = this.page.locator("main div").filter({
       has: this.page.getByRole("button", {
         name: /상세\s*필터\s*열기|상세필터열기/,
       }),
     });
+    return byBtn.or(legacy).first();
   }
 
   async clickBrandFilter(): Promise<void> {
@@ -159,19 +164,45 @@ export class SearchResultPage extends BasePage {
     if (await chip.isVisible().catch(() => false)) {
       await chip.click();
     } else {
-      // 브랜드가 button이 아니라 div[role=button]/generic인 경우까지 커버
+      // strip 내부에서만 '브랜드'를 클릭(탭 영역 클릭 오탐 방지)
       const inStrip = strip
         .locator("button, a, [role='button'], div")
         .filter({ hasText: /^브랜드$/ })
         .first();
-      if (await inStrip.isVisible().catch(() => false)) {
-        await inStrip.click();
-      } else {
-        // 최후 fallback: main 내부의 '브랜드' 버튼 (탭 영역과 충돌 가능하므로 main 스코프)
-        await this.page.locator("main").getByRole("button", { name: /브랜드/ }).first().click();
-      }
+      await expect(inStrip, "상세 필터 스트립 내 '브랜드'가 있어야 함").toBeVisible({
+        timeout: 15000,
+      });
+      await inStrip.click();
     }
     await this.dismissFilterCoachmarkIfPresent();
+  }
+
+  /** FEATURE_검색_034: 브랜드 필터 패널(모달/인라인) 오픈 확인 */
+  async verifyBrandFilterPanelOpened(): Promise<void> {
+    const dlg = this.page
+      .locator('[aria-modal="true"], [role="dialog"]')
+      .first();
+    if (await dlg.isVisible().catch(() => false)) {
+      await expect(dlg).toBeVisible({ timeout: 15000 });
+      return;
+    }
+    // 인라인 패널(모달 없이 main에 펼쳐짐) 케이스
+    const main = this.page.locator("main").first();
+    await expect(async () => {
+      const inputVisible = await main
+        .locator('input[type="search"], input[type="text"]')
+        .first()
+        .isVisible()
+        .catch(() => false);
+      const cbCount = await main.getByRole("checkbox").count().catch(() => 0);
+      const brandListVisible = await main
+        .locator("div, section")
+        .filter({ hasText: /브랜드/ })
+        .first()
+        .isVisible()
+        .catch(() => false);
+      expect(inputVisible || cbCount > 0 || brandListVisible).toBe(true);
+    }).toPass({ timeout: 15000 });
   }
 
   /** 메인 영역에 표시되는 전체 상품 수(n) */

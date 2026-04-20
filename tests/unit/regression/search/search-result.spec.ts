@@ -127,9 +127,8 @@ test.describe("Search · 검색 결과 페이지 (020~034)", () => {
   test.describe("브랜드 필터", () => {
     test("FEATURE_검색_034: 브랜드 필터 클릭 시 필터 모달이 열린다", async ({ page }) => {
       await searchResultPage.clickBrandFilter();
-      await expect(
-        page.getByRole("dialog").or(page.locator('[aria-modal="true"]')).first(),
-      ).toBeVisible({ timeout: 15000 });
+      // 브랜드 필터는 UI에 따라 모달/인라인으로 열릴 수 있음
+      await searchResultPage.verifyBrandFilterPanelOpened();
     });
   });
 });

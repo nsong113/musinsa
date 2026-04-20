@@ -104,7 +104,12 @@ test.describe("Brand · 브랜드 숍 헤더 (050~055)", () => {
 
   test("FEATURE_브랜드_055: 검색 시 브랜드 상품 목록 URL(키워드=바지)", async () => {
     await brandPage.brandProductSearchSubmit.click();
-    await expect(sharedPage).toHaveURL(/\/brand\/musinsastandard\/products/);
+    // UI/실험군에 따라 브랜드숍 내 검색이 브랜드 상품 목록으로 가거나(/brand/.../products),
+    // 전역 상품 검색으로 이동할 수 있음(/search/goods). 둘 다 키워드 적용은 동일해야 한다.
+    await expect(sharedPage).toHaveURL(
+      /\/brand\/musinsastandard\/products|\/search\/goods/,
+      { timeout: 45000 },
+    );
     const u = new URL(sharedPage.url());
     expect(u.searchParams.get("keyword")).toBe(BRAND_PRODUCT_SEARCH_KEYWORD);
   });

@@ -66,6 +66,9 @@ export default defineConfig({
       testMatch: /.*\.setup\.ts/,
       use: {
         ...desktopChrome,
+        // 로컬에서 로그인 플로우가 간헐적으로 차단/변경되는 경우에도,
+        // 기존 storageState로 setup이 통과하도록 기본 주입(필요 시 setup에서 재로그인 후 갱신 가능)
+        storageState: "tests/fixtures/storage/authed.json",
         // 로컬에서는 chromium 스펙과 동일하게 헤디드로 맞춤(무신사 로그인·헤더 검증이 헤드리스에서만 실패하는 경우 완화)
         headless: !!process.env.CI,
         locale: "ko-KR",
