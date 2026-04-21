@@ -24,6 +24,14 @@ export class ProductListPage extends BasePage {
   /**
    * 검색 결과는 `UIItemContainer` 없이 그리드만 올 수 있어, 고유 product id 기준으로 카드·링크를 고른다.
    */
+  /** 고유 상품 카드·대표 링크 (좋아요 버튼을 카드 안에 한정할 때 사용) */
+  async getResolvedProductCard(productIndex: number): Promise<{
+    card: Locator;
+    productLink: Locator;
+  }> {
+    return this.resolveUniqueProductCard(productIndex);
+  }
+
   private async resolveUniqueProductCard(productIndex: number): Promise<{
     card: Locator;
     productLink: Locator;

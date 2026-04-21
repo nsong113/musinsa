@@ -10,6 +10,7 @@ import {
   priceDiscountSetsOverlap,
   productNamesConsistent,
 } from "@/util/product-compare";
+import { assertSearch045Completed } from "@/util/search-045-state";
 
 /**
  * 전제: 검색_019까지와 동일하게 메인 → 검색어 검색 → 상품 탭 결과
@@ -37,8 +38,7 @@ test.describe("Product · 검색 리스트-상세 일치 (045~049)", () => {
   test("FEATURE_상세_045: 상세 아이템이 목록과 동일 상품(동일 product id)", async ({
     page,
   }) => {
-    await expect(page).toHaveURL(new RegExp(`/products/${snapshot.productId}(?:\\?|$)`));
-    expect(snapshot.brandLabel.length).toBeGreaterThan(0);
+    await assertSearch045Completed(page, snapshot);
   });
 
   test("FEATURE_상세_046: 브랜드 일치", async ({ page }) => {

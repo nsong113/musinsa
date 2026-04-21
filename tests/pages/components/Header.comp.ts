@@ -43,6 +43,26 @@ export class HeaderComponent {
 
   // Methods
 
+  /**
+   * 찜·마이 등 로그인 필수 플로우에서 세션이 없으면 `상품 0`만 보이는 등 원인이 드러나지 않음
+   */
+  async assertAuthenticatedSession(): Promise<void> {
+    await this.page.waitForLoadState("domcontentloaded").catch(() => {});
+    if (/\/login|\/auth\/login/i.test(this.page.url())) {
+      throw new Error(
+        "로그인 페이지로 이동했습니다. setup 프로젝트(authenticate)를 실행해 tests/fixtures/storage/authed.json을 갱신하세요.",
+      );
+    }
+    const loginVisible = await this.loginButton.first().isVisible().catch(() => false);
+    const logoutVisible = await this.logoutButton.isVisible().catch(() => false);
+    if (loginVisible && !logoutVisible) {
+      throw new Error(
+        "비로그인 상태입니다. 헤더에 로그인만 보이면 찜이 반영되지 않습니다. authenticate setup으로 authed.json을 갱신한 뒤 다시 실행하세요.",
+      );
+    }
+    await expect(this.logoutButton).toBeVisible({ timeout: 25000 });
+  }
+
   async clickingLoginBtn(): Promise<LoginPage> {
     await expect(this.loginButton.first()).toBeVisible({ timeout: 15000 });
 
